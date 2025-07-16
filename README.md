@@ -1,6 +1,8 @@
 ## What slivka-bio-installer does
 
-This project makes it easy for you to create a new installation of **slivka-bio** - a slivka based web services stack that provides access to a range of tools for bioinformatics and molecular modelling. Once you've installed the pre-requisites, you'll be able to run the slivka-bioi
+This project makes it easy for you to create a new installation of **slivka-bio** - a slivka based web services stack that provides access to a range of tools for bioinformatics and molecular modelling. 
+
+Once you've installed the pre-requisites (conda, mongodb, and optionally also docker), you'll be able to run the installer which will allow you to choose to install one or more of the tools supported by slivka-bio. The installer will then create a preconfigured slivka-bio app ready to be launched and accessed from any slivka client. 
 
 ## Cloning the respository
 
