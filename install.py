@@ -32,8 +32,31 @@ class TemplateYamlLoader(YAML):
 @click.command()
 @click.option("--conda-exe")
 @click.option("--service", "-s", "services", multiple=True, default=[''], show_default="all services")
+@click.option("--unattended", "-y", is_flag=True,
+              help="Run in unattended mode (no prompts)")
+@click.option("--prefer-installer",
+              type=click.Choice(['conda', 'docker'], case_sensitive=False),
+              help="Preferred installer when both are available")
+@click.option("--overwrite", is_flag=True,
+              help="Overwrite existing files/environments without prompting")
+@click.option("--on-error",
+              type=click.Choice(['retry', 'skip', 'abort'], case_sensitive=False),
+              default='skip',
+              help="Action to take on installation errors in unattended mode")
 @click.argument("path", type=Path)
-def main(conda_exe, services, path: Path):
+def main(conda_exe, services, path: Path, unattended, prefer_installer, overwrite, on_error):
+    """
+    Install services for Slivka Bio.
+    
+    Args:
+        conda_exe: Path to conda executable
+        services: List of service names to install
+        path: Target installation directory
+        unattended: Run in unattended mode (no interactive prompts)
+        prefer_installer: Preferred installer ('conda' or 'docker') when both available
+        overwrite: Overwrite existing files/environments without prompting
+        on_error: Action on errors in unattended mode ('retry', 'skip', 'abort')
+    """
     try:
         conda_installer = CondaInstaller(conda_exe, path / "conda_env")
     except Exception as e:
@@ -63,11 +86,14 @@ def main(conda_exe, services, path: Path):
     for service_file in sorted(service_files):
         yaml_data = yaml.load(service_file)
         click.echo(f" - {yaml_data['name']}:{yaml_data['version']}")
-    click.confirm("Confirm", default=True, abort=True)
+
+    if not unattended:
+        click.confirm("Confirm", default=True, abort=True)
 
     init_slivka(path)
     copy_shared_files(path)
 
+    # TODO: Remove this unused variable
     available_installers = [
         obj for obj in (conda_installer, docker_installer) if obj is not None
     ]
@@ -92,11 +118,23 @@ def main(conda_exe, services, path: Path):
             if docker_installer in applicable_installers:
                 installer_names.append("[d]ocker")
                 choices.append("d")
-            ans = click.prompt(
-                f"Choose installer: {', '.join(installer_names)}",
-                type=click.Choice(choices, case_sensitive=False),
-                show_choices=False
-            )
+            
+            # In unattended mode, choose installer automatically
+            if unattended:
+                if prefer_installer and prefer_installer[0].lower() in choices:
+                    ans = prefer_installer[0].lower()
+                else:
+                    # Default preference: conda first, then docker
+                    ans = choices[0]
+                click.echo(f"Auto-selecting installer: "
+                           f"{'conda' if ans == 'c' else 'docker'}")
+            else:
+                ans = click.prompt(
+                    f"Choose installer: {', '.join(installer_names)}",
+                    type=click.Choice(choices, case_sensitive=False),
+                    show_choices=False
+                )
+            
             if ans == "c":
                 installer = conda_installer
                 installer_file = service_file.with_name(f"{base_name}.conda.yaml")
@@ -104,21 +142,30 @@ def main(conda_exe, services, path: Path):
                 installer = docker_installer
                 installer_file = service_file.with_name(f"{base_name}.docker.yaml")
             try:
-                output_file = installer.install_service(installer_file, path)
+                output_file = installer.install_service(installer_file, path, overwrite)
                 click.echo(f"{click.style('Installed', fg='bright_green')}: {output_file.name}")
                 break
             except Exception as e:
                 click.echo(f"{type(e).__name__}: {e}")
-                ans = click.prompt(
-                    "[R]etry, [S]kip, [A]bort",
-                    type=click.Choice("rsai", case_sensitive=False),
-                    show_choices=False
-                )
-                if ans == 's':
-                    click.echo(click.style("Skipping", fg="yellow")+ f": {base_name}")
-                    break
-                elif ans == 'a':
-                    raise click.Abort
+                
+                if unattended:
+                    if on_error == 'skip':
+                        click.echo(click.style("Skipping", fg="yellow")+ f": {base_name}")
+                        break
+                    elif on_error == 'abort':
+                        raise click.Abort
+                    # For 'retry', continue the loop
+                else:
+                    ans = click.prompt(
+                        "[R]etry, [S]kip, [A]bort",
+                        type=click.Choice("rsai", case_sensitive=False),
+                        show_choices=False
+                    )
+                    if ans == 's':
+                        click.echo(click.style("Skipping", fg="yellow")+ f": {base_name}")
+                        break
+                    elif ans == 'a':
+                        raise click.Abort
 
 
 
@@ -169,19 +216,21 @@ def find_data_dirs(src_root: Path, patterns: list[dict]) -> list[Path]:
 
 
 
-def copy_data_dirs(copy_list: Iterable[tuple[Path, Path]]):
+def copy_data_dirs(copy_list: Iterable[tuple[Path, Path]], overwrite=False):
     """
     Copy data directories to the target root.
 
     :param Iterable[tuple[Path, Path]] copy_paths:
         Tuples of source and target absolute paths.
+    :param bool overwrite:
+        Whether to overwrite existing directories without prompting.
     :return:
         List of copied paths
     """
     copied = []
     for src_path, dst_path in copy_list:
         if dst_path.exists():
-            if click.confirm(f"Directory exists: {dst_path}. Overwrite?", default=False):
+            if overwrite or click.confirm(f"Directory exists: {dst_path}. Overwrite?", default=False):
                 shutil.rmtree(dst_path)
             else:
                 click.echo(f"Skipping: {dst_path}")
@@ -191,7 +240,7 @@ def copy_data_dirs(copy_list: Iterable[tuple[Path, Path]]):
     return copied
 
 
-def find_and_copy_data_dirs(src_root: Path, patterns: list[dict], target_root: Path) -> list[tuple[Path, Path]]:
+def find_and_copy_data_dirs(src_root: Path, patterns: list[dict], target_root: Path, overwrite=False) -> list[tuple[Path, Path]]:
     """
     Find data directories under the given path matching the given patterns
     and copy them to the target root.
@@ -210,8 +259,9 @@ def find_and_copy_data_dirs(src_root: Path, patterns: list[dict], target_root: P
         for match in find_data_dirs(src_root, patterns)
     ]
     copy_data_dirs(
-        (src_root / src_path, target_root / dst_path)
-        for src_path, dst_path in files_mapping
+        ((src_root / src_path, target_root / dst_path)
+         for src_path, dst_path in files_mapping),
+        overwrite
     )
     return files_mapping
 
@@ -276,7 +326,7 @@ class CondaInstaller:
             raise FileNotFoundError(f"Invalid conda exe: {conda_exe}")
         self.conda_env_root = conda_env_root
 
-    def install_service(self, install_file: Path, project_path: Path):
+    def install_service(self, install_file: Path, project_path: Path, overwrite=False):
         """
         Install conda environment from the given install file.
 
@@ -284,6 +334,8 @@ class CondaInstaller:
             Path to the conda install file.
         :param Path project_path:
             Path to the target project directory.
+        :param bool overwrite:
+            Whether to overwrite existing files/environments without prompting.
         """
         config = yaml.load(install_file)
         # strip .conda.yaml suffix
@@ -293,18 +345,19 @@ class CondaInstaller:
             with tempfile.NamedTemporaryFile(suffix=".yaml") as env_file:
                 yaml.dump(config["environment"], env_file)
                 env_file.flush()
-                env_path = self.create_env(base_name, Path(env_file.name))
+                env_path = self.create_env(base_name, Path(env_file.name), overwrite)
         else:
             env_file = config.get("environment-file", "environment.yaml")
             env_file = install_file.with_name(env_file)
-            env_path = self.create_env(base_name, env_file)
+            env_path = self.create_env(base_name, env_file, overwrite)
         env_context = CondaEnvContextMap(self.conda_exe, env_path)
 
         dst_data_dir = project_path / "data" / base_name
         copied_data_dirs = find_and_copy_data_dirs(
             src_root=install_file.parent,
             target_root=dst_data_dir,
-            patterns=config.get("files", [])
+            patterns=config.get("files", []),
+            overwrite=overwrite
         )
         data_dirs_context = local_paths_context(
             copied_data_dirs, dst_root=dst_data_dir
@@ -331,7 +384,7 @@ class CondaInstaller:
         )
 
 
-    def create_env(self, env_name: str, env_file: Path):
+    def create_env(self, env_name: str, env_file: Path, overwrite=False):
         if not env_file.is_file():
             raise FileNotFoundError(f"{env_file}")
         os.makedirs(self.conda_env_root, exist_ok=True)
@@ -339,7 +392,7 @@ class CondaInstaller:
             raise NotADirectoryError(f"Invalid conda env root: {self.conda_env_root}")
         env_path = (self.conda_env_root / env_name).resolve()
         if env_path.exists():
-            if not click.confirm(f"Conda env already exists: {env_path}. Overwrite?"):
+            if not overwrite and not click.confirm(f"Conda env already exists: {env_path}. Overwrite?"):
                 return env_path
         proc = subprocess.run(
             [
@@ -423,7 +476,7 @@ class DockerInstaller:
         if not self.docker_exe:
             raise FileNotFoundError("Docker not found.")
 
-    def install_service(self, install_file: Path, project_path: Path):
+    def install_service(self, install_file: Path, project_path: Path, overwrite=False):
         config = yaml.load(install_file)
         # strip .docker.yaml suffix
         base_name = install_file.name[:-len(".docker.yaml")]
@@ -434,13 +487,14 @@ class DockerInstaller:
         copied_data_dirs = find_and_copy_data_dirs(
             src_root=install_file.parent,
             target_root=dst_data_dir,
-            patterns=config.get("files", [])
+            patterns=config.get("files", []),
+            overwrite=overwrite
         )
         data_dirs_context = local_paths_context(
             copied_data_dirs, dst_root=dst_data_dir
         )
         runtime_data_dirs_context = runtime_paths_context(
-            copied_data_dirs, dst_root=Path("/data")
+            copied_data_dirs, dst_root=Path("/data")  # TODO: should this be dst_data_dir?
         )
 
         context_map = ChainMap(
