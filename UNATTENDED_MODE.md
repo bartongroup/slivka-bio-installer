@@ -23,19 +23,24 @@ Specifies the action to take when installation errors occur in unattended mode:
 - `abort`: Stop the entire installation process
 - `retry`: Keep retrying the same service indefinitely (use with caution)
 
-## Usage Examples
+## Important Note
+
+`slivka init` does not recognize the `--override` option. It is recommended to target installation to a new directory to allow `slivka init` to properly install the Slivka instance. Ensure the target directory does not already exist.
 
 ### Basic unattended installation
+
 ```bash
 python install.py --unattended /path/to/target/directory
 ```
 
 ### Unattended installation with preferences
+
 ```bash
 python install.py --unattended --prefer-installer conda --overwrite --on-error skip /path/to/target/directory
 ```
 
 ### Install specific services in unattended mode
+
 ```bash
 python install.py --unattended --service clustalo --service muscle /path/to/target/directory
 ```
