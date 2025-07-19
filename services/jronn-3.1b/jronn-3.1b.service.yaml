@@ -27,7 +27,7 @@ parameters:
     media-type: application/fasta
 
 command:
-- jronn
+- ${SLIVKA_HOME}/bin/JRonn.sh
 
 args:
   input:
@@ -49,6 +49,9 @@ outputs:
   output:
     path: output.txt
     media-type: text/plain
+  jalview-annotations:
+    path: jronn.jvannot
+    media-type: application/jalview-annotations
   log:
     path: stat.log
     media-type: text/plain
