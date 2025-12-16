@@ -79,13 +79,14 @@ class DockerInstaller(Installer):
             service_vars.items(), prefix="var"
         )
         context.append(vars_context)
-        self.write_service_file(service_template_file, context, data_dirs)
+        self.write_service_file(service_template_file, context, data_dirs, image_name)
 
     def write_service_file(
             self,
             service_template_file: Path,
             context: Context,
-            data_paths: Iterable[DataDirsMapping]
+            data_paths: Iterable[DataDirsMapping],
+            image_name: str,
     ):
         mount_args = []
         for dir_map in data_paths:
@@ -104,6 +105,7 @@ class DockerInstaller(Installer):
             shutil.which("bash"),
             wrapper_script,
             *mount_args,
+            image_name,
             *service_config["command"]
         ]
         docker_env_vars = {
