@@ -243,6 +243,7 @@ class DockerContext(Context):
             log.debug("DockerContext[%s] = <missing>", item)
             raise KeyError(item)
         log.debug("DockerContext[%s] = %r", item, value)
+        return value
 
 
 def get_image_env(docker_exe, image_name):
