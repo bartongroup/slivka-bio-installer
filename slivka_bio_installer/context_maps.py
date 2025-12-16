@@ -17,9 +17,11 @@ class ChainContextMap(Context):
     def __getitem__(self, item):
         log.debug("Accessing key: '%s'", item)
         for context in self._contexts:
-            log.debug("Try %s", context)
+            log.debug("Trying %s", context)
             try:
-                return context[item]
+                value = context[item]
+                log.debug("Found ChainContextMap[%s] = %s", item, value)
+                return value
             except KeyError:
                 pass
         else:
