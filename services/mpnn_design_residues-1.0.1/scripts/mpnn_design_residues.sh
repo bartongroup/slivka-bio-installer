@@ -7,7 +7,7 @@ if [[ $? -ne 4 ]]; then echo "Error: getopt --test failed" >&2; exit 1; fi
 
 set -eu
 
-PARSED_ARGUMENTS=$(getopt -n mpnn_design_residues.sh -o i:c:d:n:t:s:b:z: -l input_pdb:,chains_to_design:,design_positions: -- "$@")
+PARSED_ARGUMENTS=$(getopt -n mpnn_design_residues.sh -o i:c:d:n:t:s:b:z:p: -l input_pdb:,chains_to_design:,design_positions: -- "$@")
 eval set -- "$PARSED_ARGUMENTS"
 
 folder_with_pdbs="folder_with_pdbs"
@@ -32,6 +32,7 @@ do
     -s)                      MPNN_ARGS[${#MPNN_ARGS[@]}]="--seed"; shift; MPNN_ARGS[${#MPNN_ARGS[@]}]="$1"; shift ;;
     -b)                      MPNN_ARGS[${#MPNN_ARGS[@]}]="--batch_size"; shift; MPNN_ARGS[${#MPNN_ARGS[@]}]="$1"; shift ;;
     -z)                      MPNN_ARGS[${#MPNN_ARGS[@]}]="--backbone_noise"; shift; MPNN_ARGS[${#MPNN_ARGS[@]}]="$1"; shift ;;
+    -p)                      MPNN_ARGS[${#MPNN_ARGS[@]}]="--save_probs"; shift; MPNN_ARGS[${#MPNN_ARGS[@]}]="$1"; shift ;;
     --) shift; break ;;
   esac
 done
