@@ -2,18 +2,23 @@
 
 ## Cloning the repository
 
-This repository uses other repositories which are included as git submodules.
-By default `git clone` does not clone submodules recursively.
-Use `--recurse-submodules` to clone the repo with all included submodules, e.g.
+For most selected-service installs, start with a normal clone:
+
+```bash
+git clone https://github.com/proteinverse/slivka-bio-installer.git
+cd slivka-bio-installer
+```
+
+The only current submodule is the ProteinMPNN source tree used by `mpnn_design_residues-1.0.1`. You do not need to initialise submodules unless you intend to install that service. To fetch all submodules, run:
+
+```bash
+git submodule update --init --recursive
+```
+
+Alternatively, clone the repository with all submodules up front:
 
 ```bash
 git clone --recurse-submodules https://github.com/proteinverse/slivka-bio-installer.git
-```
-
-If you have already cloned the repository without submodules then run
-
-```bash
-git submodule init && git submodule update
 ```
 
 ## Prerequisites
