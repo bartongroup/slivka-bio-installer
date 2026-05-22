@@ -42,6 +42,14 @@ The installer can use _conda_ and/or _docker_ backends. At least one of these mu
 
 A running MongoDB server is required by Slivka at runtime to store job state. Slivka must be able to connect to one when the server, scheduler, and queue are started.
 
+## Service configuration files
+
+Service definitions live under `services/`, with each tool version keeping its own configuration files:
+
+- `*.service.yaml` describes the Slivka service itself: metadata, parameters, command line arguments, outputs, tests, and execution runners.
+- `*.conda.yaml` describes the conda-backed installation for that service, including files to copy and the conda channels and dependencies required to run it.
+- `*.docker.yaml` describes the Docker-backed installation for that service, including files to copy and the Dockerfile, image name, and tag used to build the runtime image.
+
 ## Installing tools
 
 Move to the directory where you cloned the installer repository and run:
