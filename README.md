@@ -1,5 +1,7 @@
 # Slivka Bio Installer
 
+This repository provides an installer for building Slivka projects from curated bioinformatics service definitions. It is intended for setting up custom Slivka-Bio installations where you want to choose which services to install. The installer can use conda-compatible and/or Docker-backed installation methods depending on the services you select.
+
 ## Cloning the repository
 
 For most selected-service installs, start with a normal clone:
